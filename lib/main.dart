@@ -1,23 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+import 'models/todo.dart';
 
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
       home: HomePage(),
@@ -25,22 +20,14 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class Item {
-  String title;
-  bool done;
-
-  Item(this.title, this.done);
-}
-
-class Todo {
-  static List<Item> items = [];
-}
-
 class HomePage extends StatefulWidget {
+  var items = new List<Item>();
+
   HomePage() {
-    Todo.items.add(Item("Item 1", false));
-    Todo.items.add(Item("Item 2", true));
-    Todo.items.add(Item("Item 3", false));
+    items = [];
+    // todo.items.add(Item(title: "Item 1", done: false));
+    // todo.items.add(Item(title: "Item 2", done: true));
+    // todo.items.add(Item(title: "Item 3", done: false));
   }
 
   @override
@@ -52,15 +39,38 @@ class _HomePageState extends State<HomePage> {
 
   void add() {
     setState(() {
-      Todo.items.add(Item(newTaskCtrl.text, false));
+      widget.items.add(Item(title: newTaskCtrl.text, done: false));
       newTaskCtrl.text = "";
+      save();
     });
   }
 
   void remove(index) {
     setState(() {
-      Todo.items.removeAt(index);
+      widget.items.removeAt(index);
+      save();
     });
+  }
+
+  save() async {
+    var prefs = await SharedPreferences.getInstance();
+    await prefs.setString('data', jsonEncode(widget.items));
+  }
+
+  Future loadData() async {
+    var prefs = await SharedPreferences.getInstance();
+    var data = prefs.getString('data');
+    if (data != null) {
+      Iterable decoded = jsonDecode(data);
+      List<Item> result = decoded.map((x) => Item.fromJson(x)).toList();
+      setState(() {
+        widget.items = result;
+      });
+    }
+  }
+
+  _HomePageState() {
+    loadData();
   }
 
   @override
@@ -82,9 +92,9 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       body: ListView.builder(
-        itemCount: Todo.items.length,
+        itemCount: widget.items.length,
         itemBuilder: (BuildContext ctxt, int index) {
-          final item = Todo.items[index];
+          final item = widget.items[index];
 
           return Dismissible(
             child: CheckboxListTile(
@@ -92,6 +102,7 @@ class _HomePageState extends State<HomePage> {
               onChanged: (bool value) {
                 setState(() {
                   item.done = value;
+                  save();
                 });
               },
               value: item.done,
